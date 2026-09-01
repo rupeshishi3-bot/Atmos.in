@@ -1,0 +1,10 @@
+{
+  "name": "ATMOS",
+  "description": "Premium cinematic weather experience with real-time data, animated backgrounds, and intelligent forecasts",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

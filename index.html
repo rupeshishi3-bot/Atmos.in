@@ -18,29 +18,28 @@
     <!-- Skip Link for Accessibility -->
     <a href="#main" class="skip-link">Skip to main content</a>
 
-    <!-- Weather Background -->
+    <!-- Weather Background System -->
     <div class="weather-bg" id="weatherBg">
-        <!-- Stars -->
-        <div class="stars" id="stars"></div>
+        <!-- Dual cross-fading photographic background image layers -->
+        <div class="bg-image-layer bg-image-a active" id="bgImageA"></div>
+        <div class="bg-image-layer bg-image-b" id="bgImageB"></div>
         
-        <!-- Sun -->
+        <!-- Cinematic dark vignette & atmosphere overlay -->
+        <div class="bg-overlay" id="bgOverlay"></div>
+        
+        <!-- High-Performance Canvas for dynamic particle physics (Wind streams, Rain, Snow, Lightning, Stars, Fog, Sun) -->
+        <canvas class="weather-canvas" id="weatherCanvas"></canvas>
+
+        <!-- DOM-based Atmospheric Elements -->
+        <div class="stars" id="stars"></div>
         <div class="sun" id="sun"></div>
         <div class="sun-ray" id="sunRay"></div>
-        
-        <!-- Clouds -->
         <div class="clouds" id="clouds"></div>
-        
-        <!-- Rain -->
         <div class="rain" id="rain"></div>
-        
-        <!-- Storm -->
         <div class="storm" id="storm"></div>
-        
-        <!-- Fog -->
         <div class="fog" id="fog"></div>
-        
-        <!-- Aurora -->
         <div class="aurora" id="aurora"></div>
+        <div class="lightning-flash" id="lightningFlash"></div>
     </div>
 
     <!-- Header -->
@@ -53,39 +52,50 @@
         </div>
         
         <nav class="nav">
-            <div class="nav-item active">
+            <div class="nav-item active" data-target="hero">
                 <i class="fas fa-home"></i>
                 <span>Home</span>
             </div>
-            <div class="nav-item">
+            <div class="nav-item" data-target="forecast">
                 <i class="fas fa-chart-line"></i>
                 <span>Forecast</span>
             </div>
-            <div class="nav-item">
+            <div class="nav-item" data-target="windDynamics">
+                <i class="fas fa-wind"></i>
+                <span>Wind & Dynamics</span>
+            </div>
+            <div class="nav-item" data-target="intelligence">
                 <i class="fas fa-brain"></i>
                 <span>Intelligence</span>
             </div>
-            <div class="nav-item">
+            <div class="nav-item" data-target="history">
                 <i class="fas fa-history"></i>
                 <span>History</span>
             </div>
         </nav>
         
         <div class="header-actions">
+            <button class="geo-btn" id="geoBtn" title="Use My Current GPS Location">
+                <i class="fas fa-location-crosshairs"></i>
+                <span class="geo-text">My Location</span>
+            </button>
             <div class="search-box">
                 <i class="fas fa-search"></i>
-                <input type="text" placeholder="Search city..." id="citySearch" />
+                <input type="text" placeholder="Search city worldwide..." id="citySearch" autocomplete="off" />
                 <i class="fas fa-times" id="clearSearch" style="display: none;"></i>
             </div>
-            <div class="unit-toggle" id="unitToggle">
+            <div class="unit-toggle" id="unitToggle" title="Toggle Temperature Unit">
                 <span class="active" data-unit="celsius">°C</span>
                 <span data-unit="fahrenheit">°F</span>
             </div>
-            <div class="settings-menu" id="settingsMenu" title="Settings">
-                <i class="fas fa-cog"></i>
+            <button class="sound-toggle" id="soundToggle" title="Toggle Ambient Weather Sound">
+                <i class="fas fa-volume-xmark" id="soundIcon"></i>
+            </button>
+            <div class="settings-menu" id="settingsMenu" title="Settings & Simulation">
+                <i class="fas fa-sliders"></i>
             </div>
-            <div class="user-menu" id="userMenu" title="Favorites">
-                <i class="fas fa-user"></i>
+            <div class="user-menu" id="userMenu" title="Favorite Cities">
+                <i class="fas fa-bookmark"></i>
             </div>
         </div>
     </header>
@@ -95,6 +105,10 @@
         <div class="container">
             <!-- Hero Section -->
             <section class="hero" id="hero">
+                <div class="hero-backdrop-badge" id="heroBadge">
+                    <span class="live-pulse"></span>
+                    <span id="heroBadgeText">Live Atmospheric Telemetry</span>
+                </div>
                 <div class="hero-location">
                     <i class="fas fa-map-marker-alt"></i>
                     <span id="location">Loading...</span>
@@ -124,9 +138,14 @@
                         <span class="hero-stat-label">Low</span>
                     </div>
                     <div class="hero-stat">
+                        <i class="fas fa-wind"></i>
+                        <span class="hero-stat-value" id="heroWind">-- km/h</span>
+                        <span class="hero-stat-label">Wind Speed</span>
+                    </div>
+                    <div class="hero-stat">
                         <i class="fas fa-clock"></i>
                         <span class="hero-stat-value" id="currentTime">--:--</span>
-                        <span class="hero-stat-label">Time</span>
+                        <span class="hero-stat-label">Local Time</span>
                     </div>
                 </div>
             </section>
@@ -139,17 +158,20 @@
                         <span>Hourly Forecast</span>
                     </h2>
                     <div class="section-actions">
-                        <button class="section-action" id="prevHour">Previous</button>
-                        <button class="section-action" id="nextHour">Next</button>
+                        <button class="section-action" id="prevHour"><i class="fas fa-chevron-left"></i> Prev</button>
+                        <button class="section-action" id="nextHour">Next <i class="fas fa-chevron-right"></i></button>
                     </div>
                 </div>
                 <div class="hourly-forecast" id="hourlyForecast">
-                    <!-- Hourly cards will be inserted here -->
+                    <!-- Hourly cards inserted here -->
                 </div>
                 <div class="chart-container">
-                    <h3 style="margin-bottom: 20px; color: var(--text-secondary); font-size: 14px;">Temperature Trend</h3>
+                    <div class="chart-header-flex">
+                        <h3 class="chart-subtitle"><i class="fas fa-chart-area"></i> 24-Hour Temperature & Precipitation Curve</h3>
+                        <span class="chart-hint">Hover / Touch points for micro-metrics</span>
+                    </div>
                     <div class="temperature-chart" id="tempChart">
-                        <div class="chart-line" id="chartLine"></div>
+                        <canvas id="hourlyCanvasChart" class="hourly-canvas-chart"></canvas>
                         <div class="chart-labels" id="chartLabels"></div>
                     </div>
                 </div>
@@ -160,11 +182,121 @@
                 <div class="section-header">
                     <h2 class="section-title">
                         <i class="fas fa-calendar-week"></i>
-                        <span>7-Day Forecast</span>
+                        <span>7-Day Atmospheric Outlook</span>
                     </h2>
                 </div>
                 <div class="daily-forecast" id="dailyForecast">
                     <!-- Daily cards will be inserted here -->
+                </div>
+            </section>
+
+            <!-- Wind & Dynamics Section -->
+            <section class="section" id="windDynamics">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-wind"></i>
+                        <span>Wind Vectors & Aerodynamics</span>
+                    </h2>
+                    <div class="wind-live-badge" id="windLiveBadge">
+                        <span class="wind-pulse-dot"></span> Flowing live on background
+                    </div>
+                </div>
+
+                <div class="wind-grid">
+                    <!-- Compass Card -->
+                    <div class="wind-card compass-card">
+                        <div class="wind-card-header">
+                            <i class="fas fa-compass"></i>
+                            <h3>Wind Direction & Compass</h3>
+                        </div>
+                        <div class="compass-wrap">
+                            <div class="compass-dial" id="compassDial">
+                                <span class="compass-point north">N</span>
+                                <span class="compass-point east">E</span>
+                                <span class="compass-point south">S</span>
+                                <span class="compass-point west">W</span>
+                                <div class="compass-needle" id="compassNeedle">
+                                    <div class="needle-arrow-north"></div>
+                                    <div class="needle-center-pivot"></div>
+                                    <div class="needle-arrow-south"></div>
+                                </div>
+                            </div>
+                            <div class="compass-info">
+                                <div class="compass-degrees" id="compassDegrees">0°</div>
+                                <div class="compass-bearing" id="compassBearing">North</div>
+                                <div class="compass-sub" id="compassSpeed">-- km/h</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flow Intensity Card -->
+                    <div class="wind-card flow-card">
+                        <div class="wind-card-header">
+                            <i class="fas fa-gauge-high"></i>
+                            <h3>Wind Speed & Aerodynamic Energy</h3>
+                        </div>
+                        <div class="flow-metric-display">
+                            <div class="flow-speed-number" id="flowSpeedNum">--</div>
+                            <div class="flow-speed-unit" id="flowSpeedUnit">km/h</div>
+                        </div>
+                        <div class="beaufort-scale-box">
+                            <div class="beaufort-header">
+                                <span class="beaufort-label">Beaufort Scale Status:</span>
+                                <span class="beaufort-val" id="beaufortVal">Calm</span>
+                            </div>
+                            <div class="beaufort-bar-track">
+                                <div class="beaufort-bar-fill" id="beaufortFill" style="width: 15%;"></div>
+                            </div>
+                            <p class="beaufort-desc" id="beaufortDesc">Air particles flow with smooth, gentle movement across the landscape.</p>
+                        </div>
+                        <div class="wind-interactive-slider-box">
+                            <label for="windSpeedSlider"><i class="fas fa-sliders"></i> Test Flow Speed Override:</label>
+                            <input type="range" id="windSpeedSlider" min="0" max="80" value="15" />
+                            <div class="slider-ticks">
+                                <span>0 km/h (Calm)</span>
+                                <span>30 km/h (Brisk)</span>
+                                <span>80 km/h (Gale)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Celestial Sun/Moon Path Card -->
+                    <div class="wind-card celestial-card">
+                        <div class="wind-card-header">
+                            <i class="fas fa-sun-plant-wilt"></i>
+                            <h3>Solar & Lunar Cycle</h3>
+                        </div>
+                        <div class="celestial-arc-wrap">
+                            <svg class="celestial-arc-svg" viewBox="0 0 300 140" id="celestialSvg">
+                                <path d="M 30 120 A 120 120 0 0 1 270 120" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="3" stroke-dasharray="4 4" />
+                                <path id="sunProgressArc" d="M 30 120 A 120 120 0 0 1 150 20" fill="none" stroke="url(#solarGrad)" stroke-width="4" stroke-linecap="round" />
+                                <defs>
+                                    <linearGradient id="solarGrad" x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="0%" stop-color="#ffd700" />
+                                        <stop offset="100%" stop-color="#ff6b00" />
+                                    </linearGradient>
+                                </defs>
+                                <circle id="celestialBody" cx="150" cy="20" r="10" fill="#ffd700" filter="drop-shadow(0 0 8px rgba(255,215,0,0.8))" />
+                            </svg>
+                            <div class="celestial-times">
+                                <div class="celestial-time-item">
+                                    <i class="fas fa-sunrise"></i>
+                                    <span>Sunrise</span>
+                                    <strong id="sunriseTime">--:--</strong>
+                                </div>
+                                <div class="celestial-time-item">
+                                    <i class="fas fa-sun"></i>
+                                    <span>Daylight</span>
+                                    <strong id="daylightDuration">-- hrs</strong>
+                                </div>
+                                <div class="celestial-time-item">
+                                    <i class="fas fa-sunset"></i>
+                                    <span>Sunset</span>
+                                    <strong id="sunsetTime">--:--</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
