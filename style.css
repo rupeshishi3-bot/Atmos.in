@@ -412,14 +412,17 @@ body {
     top: calc(100% + 8px);
     left: 0;
     right: 0;
+    min-width: 320px;
+    max-height: 380px;
+    overflow-y: auto;
     z-index: 1000;
     display: none;
     padding: 8px;
-    background: rgba(10, 14, 32, 0.96);
-    border: 1px solid rgba(0, 212, 255, 0.25);
+    background: rgba(10, 14, 32, 0.98);
+    border: 1px solid rgba(0, 212, 255, 0.3);
     border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(20px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(24px);
 }
 
 .location-suggestions.show {
@@ -433,31 +436,62 @@ body {
     background: transparent;
     color: #ffffff;
     display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
     padding: 10px 14px;
     border-radius: 10px;
     cursor: pointer;
     text-align: left;
-    transition: background 0.15s ease;
+    transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .location-suggestion:hover, .location-suggestion.active {
-    background: rgba(0, 212, 255, 0.15);
-    color: var(--accent-cyan);
+    background: rgba(0, 212, 255, 0.16);
+    color: #ffffff;
+    transform: translateX(2px);
 }
 
-.location-suggestion span {
+.location-suggestion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+}
+
+.location-suggestion-title {
     display: flex;
     gap: 8px;
     align-items: center;
     font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
 }
 
-.location-suggestion small {
+.location-suggestion:hover .location-suggestion-title {
+    color: var(--accent-cyan);
+}
+
+.location-suggestion-badge {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(0, 212, 255, 0.18);
+    color: var(--accent-cyan);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.location-suggestion-sub {
     color: var(--text-muted);
     font-size: 12px;
+    padding-left: 20px;
+    line-height: 1.4;
+}
+
+.location-suggestion:hover .location-suggestion-sub {
+    color: rgba(255, 255, 255, 0.8);
 }
 
 /* ========================================
@@ -827,28 +861,38 @@ body {
     color: var(--text-muted);
 }
 
+.chart-scroll-wrapper {
+    width: 100%;
+}
+
 .temperature-chart {
     position: relative;
     width: 100%;
-    height: 180px;
 }
 
 .hourly-canvas-chart {
     width: 100%;
-    height: 100%;
+    height: 160px;
     display: block;
 }
 
 .chart-labels {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 10px;
-    padding: 0 10px;
+    position: relative;
+    width: 100%;
+    height: 24px;
+    margin-top: 8px;
 }
 
 .chart-label {
+    position: absolute;
+    transform: translateX(-50%);
     font-size: 11px;
-    color: var(--text-muted);
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9);
+    white-space: nowrap;
+    text-align: center;
+    user-select: none;
 }
 
 /* ========================================
@@ -1765,6 +1809,36 @@ body {
     .section { padding: 20px; }
     .wind-grid { grid-template-columns: 1fr; }
     .best-time-content { flex-direction: column; text-align: center; }
+
+    /* Fix 24-Hour Temperature Curve compression specifically for mobile devices */
+    .chart-container {
+        padding: 16px 12px;
+    }
+    .chart-scroll-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 212, 255, 0.4) rgba(255, 255, 255, 0.05);
+    }
+    .chart-scroll-wrapper::-webkit-scrollbar {
+        height: 5px;
+    }
+    .chart-scroll-wrapper::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+    }
+    .chart-scroll-wrapper::-webkit-scrollbar-thumb {
+        background: rgba(0, 212, 255, 0.4);
+        border-radius: 4px;
+    }
+    .temperature-chart {
+        min-width: 680px;
+    }
+    .hourly-canvas-chart {
+        height: 170px;
+    }
 }
 
 @media (max-width: 480px) {

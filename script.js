@@ -186,6 +186,8 @@ function setupEventListeners() {
     if (elements.citySearch) {
         elements.citySearch.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && e.target.value.trim()) {
+                const dropdown = document.getElementById('locationSuggestions');
+                if (dropdown) dropdown.classList.remove('show');
                 searchCity(e.target.value.trim());
             }
         });
@@ -1032,7 +1034,7 @@ async function loadWeatherData(locationInput = null) {
         updateAllUI();
         
         if (elements.citySearch) {
-            elements.citySearch.value = location.name;
+            elements.citySearch.value = location.displayName || location.name;
             if (elements.clearSearch) elements.clearSearch.style.display = 'block';
         }
     } catch (error) {
@@ -1048,8 +1050,12 @@ async function resolveLocation(input) {
     if (input && typeof input === 'object' && Number.isFinite(Number(input.lat)) && Number.isFinite(Number(input.lon))) {
         return {
             name: input.name || 'Custom Location',
+            displayName: input.displayName || input.name || 'Custom Location',
             country: input.country || '',
             countryCode: input.countryCode || '',
+            admin1: input.admin1 || '',
+            admin2: input.admin2 || '',
+            population: input.population || 0,
             lat: Number(input.lat),
             lon: Number(input.lon),
             timezone: input.timezone || 'auto'
@@ -1062,20 +1068,142 @@ async function resolveLocation(input) {
     return results[0] || null;
 }
 
-async function geocodeLocation(query) {
-    const url = `${API_ENDPOINTS.geocode}?name=${encodeURIComponent(query)}&count=8&language=en&format=json`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Location search is temporarily unavailable.');
-    const data = await response.json();
-    return (data.results || []).map(item => ({
-        name: item.name,
-        country: item.country || '',
-        countryCode: item.country_code || '',
-        admin1: item.admin1 || '',
-        lat: item.latitude,
-        lon: item.longitude,
-        timezone: item.timezone || 'auto'
-    }));
+async function geocodeLocation(rawQuery) {
+    const query = String(rawQuery || '').trim();
+    if (!query) return [];
+
+    // Helper to format an Open-Meteo geocode result
+    function mapOpenMeteoItem(item) {
+        const isShirpurDhule = item.name.toLowerCase() === 'shirpur' && 
+            ((item.admin2 && item.admin2.toLowerCase().includes('dhule')) || (item.population && item.population > 20000));
+        
+        const displayName = isShirpurDhule ? 'Shirpur-Warwade' : item.name;
+        
+        return {
+            name: item.name,
+            displayName,
+            country: item.country || '',
+            countryCode: item.country_code || '',
+            admin1: item.admin1 || '',
+            admin2: item.admin2 || '',
+            admin3: item.admin3 || '',
+            population: item.population || 0,
+            lat: item.latitude,
+            lon: item.longitude,
+            timezone: item.timezone || 'auto'
+        };
+    }
+
+    const lowerQ = query.toLowerCase();
+    let searchTerm = query;
+    // Handle common municipal alias: Shirpur-Warwade
+    if (lowerQ.includes('shirpur') || lowerQ.includes('warwade')) {
+        searchTerm = 'Shirpur';
+    }
+
+    let results = [];
+
+    // 1. Direct Open-Meteo search
+    try {
+        const url = `${API_ENDPOINTS.geocode}?name=${encodeURIComponent(searchTerm)}&count=10&language=en&format=json`;
+        const response = await fetch(url);
+        if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data.results) && data.results.length > 0) {
+                results = data.results.map(mapOpenMeteoItem);
+            }
+        }
+    } catch (e) {
+        console.warn('Open-Meteo geocode error:', e);
+    }
+
+    // 2. If no results or compound query with spaces/commas (e.g. "shirpur maharashtra", "san francisco ca")
+    if ((!results.length || query.includes(' ') || query.includes(',')) && searchTerm === query) {
+        const primaryTerm = query.split(/[\s,]+/)[0];
+        if (primaryTerm && primaryTerm.length >= 2 && primaryTerm.toLowerCase() !== searchTerm.toLowerCase()) {
+            try {
+                const url = `${API_ENDPOINTS.geocode}?name=${encodeURIComponent(primaryTerm)}&count=10&language=en&format=json`;
+                const response = await fetch(url);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (Array.isArray(data.results) && data.results.length > 0) {
+                        results = data.results.map(mapOpenMeteoItem);
+                    }
+                }
+            } catch (e) {
+                console.warn('Fallback primary term error:', e);
+            }
+        }
+    }
+
+    // 3. Fallback to OpenStreetMap Nominatim for complex municipal queries
+    if (!results.length) {
+        try {
+            const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6`;
+            const nomRes = await fetch(nomUrl, { headers: { 'Accept-Language': 'en' } });
+            if (nomRes.ok) {
+                const nomData = await nomRes.json();
+                results = nomData.map(item => {
+                    const addr = item.address || {};
+                    const cityName = addr.city || addr.town || addr.village || addr.municipality || item.name || query;
+                    const isShirpurDhule = cityName.toLowerCase() === 'shirpur' && 
+                        ((addr.county && addr.county.toLowerCase().includes('dhule')) || 
+                         (addr.state_district && addr.state_district.toLowerCase().includes('dhule')));
+                    return {
+                        name: cityName,
+                        displayName: isShirpurDhule ? 'Shirpur-Warwade' : cityName,
+                        country: addr.country || '',
+                        countryCode: (addr.country_code || '').toUpperCase(),
+                        admin1: addr.state || '',
+                        admin2: addr.county || addr.state_district || '',
+                        admin3: addr.city_district || '',
+                        population: 0,
+                        lat: parseFloat(item.lat),
+                        lon: parseFloat(item.lon),
+                        timezone: 'auto'
+                    };
+                });
+            }
+        } catch (e) {
+            console.warn('Nominatim fallback error:', e);
+        }
+    }
+
+    // 4. Intelligent Relevance & Population Scoring
+    const queryTokens = lowerQ.split(/[\s,]+/).filter(t => t.length > 1);
+    results.forEach(r => {
+        let score = 0;
+        const textToMatch = `${r.name} ${r.displayName} ${r.admin2} ${r.admin1} ${r.country}`.toLowerCase();
+        
+        // Exact name matches
+        if (r.name.toLowerCase() === lowerQ || r.displayName.toLowerCase() === lowerQ) {
+            score += 100;
+        }
+
+        // Match individual tokens from user query (e.g. "maharastra", "maharashtra", "dhule", "warwade")
+        queryTokens.forEach(token => {
+            if (textToMatch.includes(token)) {
+                score += 50;
+            } else if (token === 'maharastra' && textToMatch.includes('maharashtra')) {
+                score += 50; // Common phonetic transliteration
+            }
+        });
+
+        // Boost municipal twin-town Shirpur-Warwade if query matches "warwade"
+        if (lowerQ.includes('warwade') && r.displayName.includes('Warwade')) {
+            score += 200;
+        }
+
+        // Population weight (large cities appear higher than unpopulated hamlets)
+        if (r.population > 0) {
+            score += Math.min(50, Math.log10(r.population) * 10);
+        }
+
+        r._relevanceScore = score;
+    });
+
+    results.sort((a, b) => (b._relevanceScore || 0) - (a._relevanceScore || 0));
+    return results;
 }
 
 async function fetchOpenMeteoWeather(location) {
@@ -1084,6 +1212,7 @@ async function fetchOpenMeteoWeather(location) {
         longitude: location.lon,
         timezone: 'auto',
         forecast_days: '7',
+        timeformat: 'unixtime',
         current: [
             'temperature_2m','relative_humidity_2m','apparent_temperature','is_day',
             'precipitation','weather_code','cloud_cover','pressure_msl','wind_speed_10m',
@@ -1124,28 +1253,52 @@ const OPEN_METEO_CODES = {
     95: [200, 'Thunderstorm'], 96: [201, 'Thunderstorm with hail'], 99: [202, 'Severe thunderstorm']
 };
 
-function weatherCodeInfo(code) {
-    return OPEN_METEO_CODES[code] || [800, 'Clear sky'];
+function weatherCodeInfo(code, precipitation = 0, cloudCover = 0, isDay = true) {
+    const rawCode = Number(code ?? 0);
+    // When numerical models output WMO code 51-57 (drizzle) or 61 (light rain) with trace precipitation (< 0.20 mm),
+    // ground observation is cloudy/partly cloudy rather than actual falling rain (matches Google/Apple Weather):
+    if ((rawCode >= 51 && rawCode <= 57) || (rawCode === 61 && precipitation < 0.15)) {
+        if (precipitation < 0.20) {
+            if (cloudCover >= 80) return [804, 'Overcast'];
+            if (cloudCover >= 35) return [802, 'Partly cloudy'];
+            if (cloudCover >= 15) return [801, 'Mainly clear'];
+            return [800, isDay ? 'Clear sky' : 'Clear night'];
+        }
+    }
+    return OPEN_METEO_CODES[rawCode] || [800, 'Clear sky'];
 }
 
 function adaptOpenMeteoData(data, location) {
     if (data.timezone && location) {
         location.timezone = data.timezone;
     }
+    if (data.utc_offset_seconds !== undefined && location) {
+        location.utc_offset_seconds = data.utc_offset_seconds;
+    }
 
     const cur = data.current || {};
-    const [weatherId, weatherDesc] = weatherCodeInfo(cur.weather_code);
     const isDay = cur.is_day !== undefined ? cur.is_day === 1 : true;
-    const nowIso = cur.time || new Date().toISOString();
-    const dt = Math.floor(new Date(nowIso).getTime() / 1000);
+    const precip = cur.precipitation ?? 0;
+    const cloudCover = Math.round(cur.cloud_cover ?? 0);
+    const [weatherId, weatherDesc] = weatherCodeInfo(cur.weather_code, precip, cloudCover, isDay);
+    
+    // dt in unix epoch seconds
+    const dt = typeof cur.time === 'number'
+        ? cur.time
+        : (cur.time ? Math.floor(new Date(cur.time).getTime() / 1000) : Math.floor(Date.now() / 1000));
 
-    const sunriseStr = data.daily?.sunrise?.[0];
-    const sunsetStr = data.daily?.sunset?.[0];
-    const sunrise = sunriseStr ? Math.floor(new Date(sunriseStr).getTime() / 1000) : dt - 21600;
-    const sunset = sunsetStr ? Math.floor(new Date(sunsetStr).getTime() / 1000) : dt + 21600;
+    const rawSunrise = data.daily?.sunrise?.[0];
+    const rawSunset = data.daily?.sunset?.[0];
+    const sunrise = typeof rawSunrise === 'number'
+        ? rawSunrise
+        : (rawSunrise ? Math.floor(new Date(rawSunrise).getTime() / 1000) : dt - 21600);
+    const sunset = typeof rawSunset === 'number'
+        ? rawSunset
+        : (rawSunset ? Math.floor(new Date(rawSunset).getTime() / 1000) : dt + 21600);
 
     const current = {
         name: location.name,
+        displayName: location.displayName || location.name,
         coord: { lat: location.lat, lon: location.lon },
         sys: {
             country: location.country || location.countryCode || '',
@@ -1154,10 +1307,11 @@ function adaptOpenMeteoData(data, location) {
         },
         dt,
         timezone: data.timezone || location.timezone || 'auto',
+        utc_offset_seconds: data.utc_offset_seconds ?? location.utc_offset_seconds ?? 0,
         is_day: cur.is_day !== undefined ? cur.is_day : (isDay ? 1 : 0),
         weather_code: cur.weather_code !== undefined ? cur.weather_code : 0,
-        cloud_cover: Math.round(cur.cloud_cover ?? 0),
-        precipitation: cur.precipitation ?? 0,
+        cloud_cover: cloudCover,
+        precipitation: precip,
         main: {
             temp: cur.temperature_2m ?? 20,
             feels_like: cur.apparent_temperature ?? cur.temperature_2m ?? 20,
@@ -1176,7 +1330,7 @@ function adaptOpenMeteoData(data, location) {
             speed: (cur.wind_speed_10m ?? 0) / 3.6, // m/s
             deg: cur.wind_direction_10m ?? 0
         },
-        clouds: { all: Math.round(cur.cloud_cover ?? 0) },
+        clouds: { all: cloudCover },
         visibility: Math.round(cur.visibility ?? 10000),
         uv: cur.uv_index ?? data.daily?.uv_index_max?.[0] ?? 3
     };
@@ -1187,12 +1341,17 @@ function adaptOpenMeteoData(data, location) {
     const maxHours = Math.min(72, hourlyTimes.length);
 
     for (let i = 0; i < maxHours; i++) {
-        const itemTime = new Date(hourlyTimes[i]);
-        const [hId, hDesc] = weatherCodeInfo(hourly.weather_code?.[i]);
+        const rawTime = hourlyTimes[i];
+        const itemDt = typeof rawTime === 'number'
+            ? rawTime
+            : Math.floor(new Date(rawTime).getTime() / 1000);
+        const hPrecip = hourly.precipitation?.[i] ?? 0;
+        const hCloud = Math.round(hourly.cloud_cover?.[i] ?? 0);
         const hIsDay = hourly.is_day?.[i] === 1;
+        const [hId, hDesc] = weatherCodeInfo(hourly.weather_code?.[i], hPrecip, hCloud, hIsDay);
 
         forecastList.push({
-            dt: Math.floor(itemTime.getTime() / 1000),
+            dt: itemDt,
             main: {
                 temp: hourly.temperature_2m?.[i] ?? 0,
                 feels_like: hourly.apparent_temperature?.[i] ?? 0,
@@ -1211,7 +1370,7 @@ function adaptOpenMeteoData(data, location) {
                 speed: (hourly.wind_speed_10m?.[i] ?? 0) / 3.6,
                 deg: hourly.wind_direction_10m?.[i] ?? 0
             },
-            clouds: { all: Math.round(hourly.cloud_cover?.[i] ?? 0) },
+            clouds: { all: hCloud },
             pop: (hourly.precipitation_probability?.[i] ?? 0) / 100
         });
     }
@@ -1228,6 +1387,12 @@ function adaptOpenMeteoData(data, location) {
 
 function extractHourlyForecast(forecast) {
     if (!forecast || !forecast.list) return [];
+    const nowSec = Math.floor(Date.now() / 1000);
+    // Filter from approximately the current hour forward (30 min buffer)
+    const upcoming = forecast.list.filter(item => item.dt >= nowSec - 1800);
+    if (upcoming.length >= 12) {
+        return upcoming.slice(0, 24);
+    }
     return forecast.list.slice(0, 24);
 }
 
@@ -1265,10 +1430,23 @@ function updateErrorState() {
 function updateHero() {
     if (!state.currentWeather) return;
 
-    const { name, sys, main, weather } = state.currentWeather;
+    const { name, displayName, sys, main, weather } = state.currentWeather;
     const weatherData = weather[0];
 
-    if (elements.location) elements.location.textContent = `${name}${sys.country ? ', ' + sys.country : ''}`;
+    const locTitle = displayName || state.location?.displayName || name;
+    const adminParts = [];
+    if (state.location?.admin2 && !locTitle.toLowerCase().includes(state.location.admin2.toLowerCase())) {
+        adminParts.push(state.location.admin2.replace(/\s+district$/i, ''));
+    }
+    if (state.location?.admin1 && !locTitle.toLowerCase().includes(state.location.admin1.toLowerCase())) {
+        adminParts.push(state.location.admin1);
+    }
+    if (sys.country && !locTitle.toLowerCase().includes(sys.country.toLowerCase())) {
+        adminParts.push(sys.country);
+    }
+    const locationStr = adminParts.length > 0 ? `${locTitle}, ${adminParts.join(', ')}` : locTitle;
+
+    if (elements.location) elements.location.textContent = locationStr;
     
     const temp = convertTemp(main.temp);
     if (elements.temperature) elements.temperature.textContent = `${Math.round(temp)}°`;
@@ -1290,20 +1468,20 @@ function updateHourlyForecast() {
     if (!state.hourlyForecast || state.hourlyForecast.length === 0 || !elements.hourlyForecast) return;
 
     elements.hourlyForecast.innerHTML = '';
-    const now = new Date();
-    const currentHour = now.getHours();
+    const currentCityHour = getCityHour(new Date());
     const hourlyToShow = state.hourlyForecast.slice(0, 16);
 
-    hourlyToShow.forEach(hour => {
+    hourlyToShow.forEach((hour, idx) => {
         const date = new Date(hour.dt * 1000);
-        const hourNum = date.getHours();
+        const hourNum = getCityHour(date);
         const temp = Math.round(convertTemp(hour.main.temp));
         const weatherId = hour.weather[0].id;
         const icon = hour.weather[0].icon;
         const pop = hour.pop ? Math.round(hour.pop * 100) : 0;
 
+        const isCurrent = idx === 0 || hourNum === currentCityHour;
         const card = document.createElement('div');
-        card.className = `hourly-card ${hourNum === currentHour ? 'active' : ''}`;
+        card.className = `hourly-card ${isCurrent ? 'active' : ''}`;
         card.innerHTML = `
             <div class="hourly-time">${formatTime(date)}</div>
             <div class="hourly-icon">${getWeatherIcon(weatherId, icon)}</div>
@@ -1325,12 +1503,15 @@ function renderHourlyCanvasChart() {
     
     // Set actual canvas resolution for HiDPI
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = (rect.width || 800) * dpr;
-    canvas.height = (rect.height || 180) * dpr;
-    ctx.scale(dpr, dpr);
+    const isMobile = window.innerWidth <= 768;
+    const defaultWidth = isMobile ? 680 : 800;
+    const defaultHeight = isMobile ? 170 : 160;
+    const w = rect.width && rect.width > 50 ? rect.width : defaultWidth;
+    const h = rect.height && rect.height > 50 ? rect.height : defaultHeight;
 
-    const w = rect.width || 800;
-    const h = rect.height || 180;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
 
     const data = state.hourlyForecast.slice(0, 12);
     if (!data.length) return;
@@ -1407,7 +1588,7 @@ function renderHourlyCanvasChart() {
     // Update bottom hour labels
     if (elements.chartLabels) {
         elements.chartLabels.innerHTML = points.map(p => `
-            <span class="chart-label">${formatTime(p.time)}</span>
+            <span class="chart-label" style="left: ${p.x}px;">${formatTime(p.time)}</span>
         `).join('');
     }
 }
@@ -1419,7 +1600,8 @@ function updateDailyForecast() {
     elements.dailyForecast.innerHTML = '';
 
     for (let i = 0; i < Math.min(7, daily.time.length); i++) {
-        const date = new Date(`${daily.time[i]}T12:00:00`);
+        const rawTime = daily.time[i];
+        const date = typeof rawTime === 'number' ? new Date(rawTime * 1000) : new Date(`${rawTime}T12:00:00`);
         const [conditionId, description] = weatherCodeInfo(daily.weather_code[i]);
         const highTemp = daily.temperature_2m_max[i];
         const lowTemp = daily.temperature_2m_min[i];
@@ -1526,14 +1708,15 @@ function updateCelestialArc() {
     const sunrise = sys.sunrise;
     const sunset = sys.sunset;
 
-    if (elements.sunriseTime) elements.sunriseTime.textContent = formatTime(new Date(sunrise * 1000));
-    if (elements.sunsetTime) elements.sunsetTime.textContent = formatTime(new Date(sunset * 1000));
+    if (elements.sunriseTime) elements.sunriseTime.textContent = formatTime(sunrise);
+    if (elements.sunsetTime) elements.sunsetTime.textContent = formatTime(sunset);
 
     const solarNoon = (sunrise + sunset) / 2;
-    if (elements.solarNoonTime) elements.solarNoonTime.textContent = formatTime(new Date(solarNoon * 1000));
+    if (elements.solarNoonTime) elements.solarNoonTime.textContent = formatTime(solarNoon);
 
     const totalDay = sunset - sunrise;
-    const elapsed = dt - sunrise;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const elapsed = nowSec - sunrise;
     const progress = Math.max(0, Math.min(1, elapsed / totalDay));
 
     // Position on SVG Arc (M 20 80 A 100 100 0 0 1 260 80)
@@ -1573,14 +1756,12 @@ function updateIntelligence() {
 function updateBestTime() {
     if (!state.hourlyForecast || state.hourlyForecast.length === 0) return;
 
-    const now = new Date();
-    const currentHour = now.getHours();
+    const nowSec = Math.floor(Date.now() / 1000);
     let bestHour = null;
     let bestScore = -Infinity;
 
     state.hourlyForecast.forEach(hour => {
-        const date = new Date(hour.dt * 1000);
-        if (date.getHours() < currentHour) return;
+        if (hour.dt < nowSec - 1800) return;
 
         const temp = convertTemp(hour.main.temp);
         const humidity = hour.main.humidity;
@@ -1601,10 +1782,11 @@ function updateBestTime() {
 
     if (bestHour) {
         const date = new Date(bestHour.dt * 1000);
+        const hourCityNum = getCityHour(date);
         const temp = Math.round(convertTemp(bestHour.main.temp));
         const condition = bestHour.weather[0].description;
 
-        if (elements.bestTimePeriod) elements.bestTimePeriod.textContent = `${formatTime(date)} - ${getTimePeriod(date.getHours())}`;
+        if (elements.bestTimePeriod) elements.bestTimePeriod.textContent = `${formatTime(date)} - ${getTimePeriod(hourCityNum)}`;
         if (elements.bestTimeDesc) {
             elements.bestTimeDesc.innerHTML = `
                 <strong>Forecast:</strong> ${temp}° - ${condition}<br>
@@ -1629,8 +1811,8 @@ function updateWeatherStats() {
         { icon: 'fa-cloud', label: 'Cloud Cover', value: `${clouds.all || 0}%`, progress: clouds.all || 0 },
         { icon: 'fa-gauge-high', label: 'Atmospheric Pressure', value: `${main.pressure} hPa`, unit: 'hPa' },
         { icon: 'fa-sun', label: 'UV Radiation Index', value: getUVIndexIndex(state.currentWeather), progress: getUVIndexValue(state.currentWeather) },
-        { icon: 'fa-sun-rising', label: 'Dawn Sunrise', value: formatTime(new Date(sys.sunrise * 1000)), noProgress: true },
-        { icon: 'fa-sun-dust', label: 'Dusk Sunset', value: formatTime(new Date(sys.sunset * 1000)), noProgress: true }
+        { icon: 'fa-sun-rising', label: 'Dawn Sunrise', value: formatTime(sys.sunrise), noProgress: true },
+        { icon: 'fa-sun-dust', label: 'Dusk Sunset', value: formatTime(sys.sunset), noProgress: true }
     ];
 
     elements.weatherStats.innerHTML = stats.map(stat => `
@@ -1708,16 +1890,101 @@ function toggleUnit() {
     showToast(`Switched to ${state.unit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}`, 'info');
 }
 
-function formatTime(date) {
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+function getTargetTimeZone() {
+    return state.currentWeather?.timezone || state.location?.timezone || 'auto';
+}
+
+function parseDateInput(date) {
+    if (!date && date !== 0) return null;
+    let d;
+    if (typeof date === 'number') {
+        d = new Date(date > 1e11 ? date : date * 1000);
+    } else if (typeof date === 'string') {
+        if (/^\d+$/.test(date)) {
+            const n = Number(date);
+            d = new Date(n > 1e11 ? n : n * 1000);
+        } else {
+            d = new Date(date);
+        }
+    } else {
+        d = date instanceof Date ? date : new Date(date);
+    }
+    return (!d || isNaN(d.getTime())) ? null : d;
+}
+
+function formatTime(date, options = {}) {
+    const d = parseDateInput(date);
+    if (!d) return '--:--';
+
+    const tz = getTargetTimeZone();
+    const formatOptions = {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        ...(tz && tz !== 'auto' ? { timeZone: tz } : {}),
+        ...options
+    };
+
+    try {
+        return new Intl.DateTimeFormat('en-US', formatOptions).format(d);
+    } catch (e) {
+        try {
+            return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        } catch (err) {
+            return '--:--';
+        }
+    }
 }
 
 function formatDay(date) {
-    return date.toLocaleDateString('en-US', { weekday: 'short' });
+    const d = parseDateInput(date);
+    if (!d) return '';
+
+    const tz = getTargetTimeZone();
+    try {
+        return new Intl.DateTimeFormat('en-US', {
+            weekday: 'short',
+            ...(tz && tz !== 'auto' ? { timeZone: tz } : {})
+        }).format(d);
+    } catch (e) {
+        return d.toLocaleDateString('en-US', { weekday: 'short' });
+    }
 }
 
 function formatDate(date) {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const d = parseDateInput(date);
+    if (!d) return '';
+
+    const tz = getTargetTimeZone();
+    try {
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            ...(tz && tz !== 'auto' ? { timeZone: tz } : {})
+        }).format(d);
+    } catch (e) {
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+}
+
+function getCityHour(date = new Date()) {
+    const d = parseDateInput(date) || new Date();
+    const tz = getTargetTimeZone();
+    try {
+        if (tz && tz !== 'auto') {
+            const parts = new Intl.DateTimeFormat('en-US', {
+                hour: 'numeric',
+                hour12: false,
+                timeZone: tz
+            }).formatToParts(d);
+            const hourPart = parts.find(p => p.type === 'hour');
+            if (hourPart) {
+                const h = parseInt(hourPart.value, 10);
+                return h === 24 ? 0 : h;
+            }
+        }
+    } catch (e) {}
+    return d.getHours();
 }
 
 function getWeatherIcon(weatherId, iconCode) {
@@ -1772,10 +2039,22 @@ function determineWeatherCondition(weatherData) {
         }
         // Rain / Heavy showers
         if ((weatherCode >= 61 && weatherCode <= 67) || (weatherCode >= 80 && weatherCode <= 82)) {
+            const precip = weatherData.precipitation ?? 0;
+            if (weatherCode === 61 && precip < 0.15) {
+                if (cloudCover >= 80) return isDay ? 'overcast' : 'night_cloudy';
+                if (cloudCover >= 35) return isDay ? 'partly_cloudy' : 'night_cloudy';
+            }
             return isDay ? 'rainy' : 'night_rain';
         }
         // Drizzle
         if (weatherCode >= 51 && weatherCode <= 57) {
+            const precip = weatherData.precipitation ?? 0;
+            if (precip < 0.20) {
+                if (cloudCover >= 80) return isDay ? 'overcast' : 'night_cloudy';
+                if (cloudCover >= 35) return isDay ? 'partly_cloudy' : 'night_cloudy';
+                if (cloudCover >= 15) return isDay ? 'clear' : 'night_clear';
+                return isDay ? 'sunny' : 'night_clear';
+            }
             return isDay ? 'drizzle' : 'night_rain';
         }
         // Fog & depositing rime fog
@@ -1970,12 +2249,34 @@ function renderLocationSuggestions(results) {
         return;
     }
 
-    dropdown.innerHTML = results.map((item, index) => `
-        <button type="button" class="location-suggestion" data-index="${index}">
-            <span><i class="fas fa-location-dot"></i> ${escapeHtml(item.name)}</span>
-            <small>${escapeHtml([item.admin1, item.country].filter(Boolean).join(', '))}</small>
-        </button>
-    `).join('');
+    dropdown.innerHTML = results.map((item, index) => {
+        const title = item.displayName || item.name;
+        const parts = [];
+        if (item.admin2 && !title.toLowerCase().includes(item.admin2.toLowerCase())) {
+            parts.push(item.admin2);
+        }
+        if (item.admin1 && !title.toLowerCase().includes(item.admin1.toLowerCase())) {
+            parts.push(item.admin1);
+        }
+        if (item.country && !title.toLowerCase().includes(item.country.toLowerCase())) {
+            parts.push(item.country);
+        }
+        const subtitle = parts.join(', ') || item.country || '';
+        const popBadge = item.population > 0 ? `<span class="location-suggestion-badge"><i class="fas fa-users" style="font-size: 10px; margin-right: 3px;"></i>${Number(item.population).toLocaleString()}</span>` : '';
+
+        return `
+            <button type="button" class="location-suggestion" data-index="${index}">
+                <div class="location-suggestion-header">
+                    <div class="location-suggestion-title">
+                        <i class="fas fa-location-dot" style="color: var(--accent-cyan);"></i>
+                        <span>${escapeHtml(title)}</span>
+                    </div>
+                    ${popBadge}
+                </div>
+                ${subtitle ? `<div class="location-suggestion-sub">${escapeHtml(subtitle)}</div>` : ''}
+            </button>
+        `;
+    }).join('');
 
     dropdown.querySelectorAll('.location-suggestion').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -2211,47 +2512,36 @@ function showToast(message, type = 'info') {
 
 function startClock() {
     updateCurrentTime();
-    setInterval(updateCurrentTime, 1000);
+    updateDate();
+    setInterval(() => {
+        updateCurrentTime();
+    }, 1000);
 }
 
 function updateCurrentTime() {
     if (!elements.currentTime) return;
-    try {
-        const tz = state.location?.timezone;
-        if (tz && tz !== 'auto') {
-            elements.currentTime.textContent = new Intl.DateTimeFormat('en-US', {
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true,
-                timeZone: tz
-            }).format(new Date());
-            return;
-        }
-    } catch (e) {}
     elements.currentTime.textContent = formatTime(new Date());
 }
 
 function updateDate() {
     if (!elements.date) return;
+    const tz = getTargetTimeZone();
     try {
-        const tz = state.location?.timezone;
-        if (tz && tz !== 'auto') {
-            elements.date.textContent = new Intl.DateTimeFormat('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                timeZone: tz
-            }).format(new Date());
-            return;
-        }
-    } catch (e) {}
-    elements.date.textContent = new Date().toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
+        elements.date.textContent = new Intl.DateTimeFormat('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            ...(tz && tz !== 'auto' ? { timeZone: tz } : {})
+        }).format(new Date());
+    } catch (e) {
+        elements.date.textContent = new Date().toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    }
 }
 
 function scrollHourlyForecast(direction) {
