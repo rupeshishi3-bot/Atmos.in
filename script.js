@@ -19,13 +19,14 @@ const API_ENDPOINTS = {
     reverseGeocode: 'https://nominatim.openstreetmap.org/reverse'
 };
 
-// High-Definition Condition-Specific Photographic Backgrounds
+// High-Definition Condition-Specific Photographic Backgrounds (Day & Night Aware)
 const WEATHER_BACKGROUNDS = {
     sunny: 'https://images.unsplash.com/photo-1601297183305-6df142704ea2?auto=format&fit=crop&w=2000&q=85',
     clear: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=85',
-    windy: 'https://images.unsplash.com/photo-1505672678474-c27949666736?auto=format&fit=crop&w=2000&q=85',
-    cloudy: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=2000&q=85',
+    partly_cloudy: 'https://images.unsplash.com/photo-1592210454359-9043f067919b?auto=format&fit=crop&w=2000&q=85',
+    cloudy: 'https://images.unsplash.com/photo-1501630834273-4b5604d2ee31?auto=format&fit=crop&w=2000&q=85',
     overcast: 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?auto=format&fit=crop&w=2000&q=85',
+    windy: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=2000&q=85',
     rainy: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=2000&q=85',
     drizzle: 'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=2000&q=85',
     storm: 'https://images.unsplash.com/photo-1514632595-4944383f2737?auto=format&fit=crop&w=2000&q=85',
@@ -33,7 +34,35 @@ const WEATHER_BACKGROUNDS = {
     snow: 'https://images.unsplash.com/photo-1491002052546-bf38f186af56?auto=format&fit=crop&w=2000&q=85',
     fog: 'https://images.unsplash.com/photo-1487621167305-5d248087c724?auto=format&fit=crop&w=2000&q=85',
     mist: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=2000&q=85',
-    night: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=2000&q=85'
+    night: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=2000&q=85',
+    night_clear: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=2000&q=85',
+    night_cloudy: 'https://images.unsplash.com/photo-1532978379173-523e16f371f2?auto=format&fit=crop&w=2000&q=85',
+    night_rain: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&w=2000&q=85',
+    night_storm: 'https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&w=2000&q=85',
+    night_snow: 'https://images.unsplash.com/photo-1517299321609-52687d1bc55a?auto=format&fit=crop&w=2000&q=85'
+};
+
+// Atmospheric Gradients for Instantaneous Seamless Background Transitions
+const WEATHER_GRADIENTS = {
+    sunny: 'linear-gradient(180deg, #1062a8 0%, #298cd4 45%, #60b6ec 100%)',
+    clear: 'linear-gradient(180deg, #0e5491 0%, #2581c7 45%, #58ace0 100%)',
+    partly_cloudy: 'linear-gradient(180deg, #164676 0%, #2f6ea6 45%, #659ec7 100%)',
+    cloudy: 'linear-gradient(180deg, #233446 0%, #3d556e 45%, #6a829a 100%)',
+    overcast: 'linear-gradient(180deg, #1d2630 0%, #33404c 45%, #52626e 100%)',
+    windy: 'linear-gradient(180deg, #153255 0%, #1f4773 45%, #2a3a50 100%)',
+    rainy: 'linear-gradient(180deg, #0e1b29 0%, #1a3245 45%, #27485f 100%)',
+    drizzle: 'linear-gradient(180deg, #172430 0%, #263847 45%, #384e5f 100%)',
+    storm: 'linear-gradient(180deg, #0a0e16 0%, #161e2b 45%, #0f1520 100%)',
+    thunderstorm: 'linear-gradient(180deg, #080b12 0%, #131924 45%, #0b0e16 100%)',
+    snow: 'linear-gradient(180deg, #243342 0%, #3e5f77 50%, #8eaec5 100%)',
+    fog: 'linear-gradient(180deg, #232d36 0%, #3a4855 50%, #5d6e7d 100%)',
+    mist: 'linear-gradient(180deg, #202b34 0%, #374653 50%, #556775 100%)',
+    night: 'linear-gradient(180deg, #04060f 0%, #070c24 50%, #101639 100%)',
+    night_clear: 'linear-gradient(180deg, #03050c 0%, #060b20 50%, #0e1333 100%)',
+    night_cloudy: 'linear-gradient(180deg, #050814 0%, #0b1122 50%, #141c33 100%)',
+    night_rain: 'linear-gradient(180deg, #040812 0%, #0a1322 50%, #111e32 100%)',
+    night_storm: 'linear-gradient(180deg, #020306 0%, #060a14 45%, #03050a 100%)',
+    night_snow: 'linear-gradient(180deg, #060a16 0%, #0e172a 50%, #182640 100%)'
 };
 
 // Global Reactive State
@@ -293,13 +322,21 @@ function simulateWeatherScene(scene) {
     
     // Map scene to condition metadata
     const sceneConfigs = {
-        sunny: { name: 'Sunny & Clear', id: 800, isDay: true, wind: 8, temp: 26 },
-        windy: { name: 'High Wind Velocity', id: 801, isDay: true, wind: 45, temp: 19 },
+        sunny: { name: 'Radiant Sunshine', id: 800, isDay: true, wind: 8, temp: 26 },
+        clear: { name: 'Crisp Clear Sky', id: 800, isDay: true, wind: 6, temp: 23 },
+        partly_cloudy: { name: 'Partly Cloudy', id: 802, isDay: true, wind: 14, temp: 21 },
+        cloudy: { name: 'Cloud Covered', id: 803, isDay: true, wind: 16, temp: 18 },
+        overcast: { name: 'Overcast Horizon', id: 804, isDay: true, wind: 18, temp: 15 },
+        windy: { name: 'High Wind Velocity', id: 801, isDay: true, wind: 48, temp: 17 },
         rainy: { name: 'Atmospheric Rain', id: 501, isDay: true, wind: 22, temp: 16 },
+        drizzle: { name: 'Misting Drizzle', id: 301, isDay: true, wind: 10, temp: 14 },
         storm: { name: 'Severe Thunderstorm', id: 211, isDay: false, wind: 60, temp: 18 },
         snow: { name: 'Winter Snowfall', id: 601, isDay: true, wind: 15, temp: -2 },
         fog: { name: 'Dense Atmospheric Fog', id: 741, isDay: true, wind: 5, temp: 12 },
-        night: { name: 'Cosmic Starlight', id: 800, isDay: false, wind: 10, temp: 15 }
+        night: { name: 'Cosmic Starlight', id: 800, isDay: false, wind: 8, temp: 14 },
+        night_clear: { name: 'Celestial Clear Night', id: 800, isDay: false, wind: 7, temp: 13 },
+        night_cloudy: { name: 'Moonlit Cloudy Night', id: 803, isDay: false, wind: 12, temp: 15 },
+        night_rain: { name: 'Nocturnal Rainstorm', id: 501, isDay: false, wind: 24, temp: 13 }
     };
 
     const cfg = sceneConfigs[scene] || sceneConfigs.sunny;
@@ -381,7 +418,9 @@ async function loadDefaultWeather() {
 // ========================================
 
 function setCinematicBackground(conditionType) {
-    const imageUrl = WEATHER_BACKGROUNDS[conditionType] || WEATHER_BACKGROUNDS.sunny;
+    const imageUrl = WEATHER_BACKGROUNDS[conditionType] || 
+                     WEATHER_BACKGROUNDS[conditionType.startsWith('night') ? 'night' : 'sunny'] || 
+                     WEATHER_BACKGROUNDS.sunny;
     
     // Dual layer cross-fade
     const incomingLayer = state.activeBgLayer === 'A' ? elements.bgLayerB : elements.bgLayerA;
@@ -389,18 +428,37 @@ function setCinematicBackground(conditionType) {
 
     if (!incomingLayer || !currentLayer) return;
 
-    // Preload image
+    // Apply atmospheric gradient immediately to ensure instantaneous visual feedback
+    if (WEATHER_GRADIENTS[conditionType]) {
+        incomingLayer.style.background = WEATHER_GRADIENTS[conditionType];
+    }
+
+    // Preload image for butter-smooth transition
     const img = new Image();
     img.src = imageUrl;
-    img.onload = () => {
-        incomingLayer.style.backgroundImage = `url('${imageUrl}')`;
+
+    const activateLayer = (url) => {
+        incomingLayer.style.backgroundImage = `url('${url}')`;
+        incomingLayer.style.backgroundSize = 'cover';
+        incomingLayer.style.backgroundPosition = 'center center';
         incomingLayer.classList.add('active');
         currentLayer.classList.remove('active');
         state.activeBgLayer = state.activeBgLayer === 'A' ? 'B' : 'A';
     };
 
-    // Body class for themed styling
-    document.body.className = `weather-${conditionType}`;
+    img.onload = () => activateLayer(imageUrl);
+    img.onerror = () => {
+        // Fallback to primary condition image if external link has issues
+        const fallbackUrl = conditionType.startsWith('night') ? WEATHER_BACKGROUNDS.night : WEATHER_BACKGROUNDS.sunny;
+        activateLayer(fallbackUrl);
+    };
+
+    // Body class for condition-specific contextual styling without removing non-weather classes
+    const classList = document.body.classList;
+    Array.from(classList).forEach(cls => {
+        if (cls.startsWith('weather-')) classList.remove(cls);
+    });
+    classList.add(`weather-${conditionType}`);
 }
 
 // ========================================
@@ -458,6 +516,51 @@ function createParticlesForMode(mode) {
             }
             break;
 
+        case 'partly_cloudy':
+            // Solar dust motes + light flowing air streams
+            for (let i = 0; i < 40; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 2.5 + 1,
+                    alpha: Math.random() * 0.5 + 0.2,
+                    speedY: -Math.random() * 0.3 - 0.05,
+                    speedX: (Math.random() - 0.5) * 0.4,
+                    hue: Math.random() * 25 + 35,
+                    pulseSpeed: Math.random() * 0.02 + 0.01,
+                    pulseVal: Math.random() * Math.PI
+                });
+            }
+            for (let i = 0; i < 15; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 80 + 50,
+                    speedX: Math.random() * 0.3 + 0.1,
+                    alpha: Math.random() * 0.05 + 0.02,
+                    pulse: Math.random() * Math.PI,
+                    isPuff: true
+                });
+            }
+            break;
+
+        case 'cloudy':
+        case 'overcast':
+        case 'fog':
+        case 'mist':
+            // Drifting volumetric atmospheric fog puff circles
+            for (let i = 0; i < 35; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 120 + 80,
+                    speedX: Math.random() * 0.4 + 0.1,
+                    alpha: Math.random() * 0.08 + 0.03,
+                    pulse: Math.random() * Math.PI
+                });
+            }
+            break;
+
         case 'windy':
             // High-speed flowing aerodynamic streaks
             const count = Math.min(180, Math.floor(currentWindVelocity * 2.5 + 40));
@@ -476,6 +579,7 @@ function createParticlesForMode(mode) {
 
         case 'rainy':
         case 'drizzle':
+        case 'night_rain':
             // Raindrop velocity streaks with wind slant
             const rainCount = mode === 'drizzle' ? 120 : 300;
             for (let i = 0; i < rainCount; i++) {
@@ -493,6 +597,7 @@ function createParticlesForMode(mode) {
 
         case 'storm':
         case 'thunderstorm':
+        case 'night_storm':
             // Heavy rain + Lightning flashes
             for (let i = 0; i < 450; i++) {
                 particles.push({
@@ -508,6 +613,7 @@ function createParticlesForMode(mode) {
             break;
 
         case 'snow':
+        case 'night_snow':
             // 3D falling snowflakes with soft sway
             for (let i = 0; i < 160; i++) {
                 particles.push({
@@ -523,31 +629,42 @@ function createParticlesForMode(mode) {
             }
             break;
 
-        case 'fog':
-        case 'mist':
-            // Drifting volumetric atmospheric fog puff circles
-            for (let i = 0; i < 35; i++) {
-                particles.push({
-                    x: Math.random() * width,
-                    y: Math.random() * height,
-                    radius: Math.random() * 120 + 80,
-                    speedX: Math.random() * 0.4 + 0.1,
-                    alpha: Math.random() * 0.08 + 0.03,
-                    pulse: Math.random() * Math.PI
-                });
-            }
-            break;
-
         case 'night':
-            // Twinkling stars and subtle shooting stars
-            for (let i = 0; i < 140; i++) {
+        case 'night_clear':
+            // Twinkling stars and celestial starlight
+            for (let i = 0; i < 150; i++) {
                 particles.push({
                     x: Math.random() * width,
-                    y: Math.random() * height * 0.8,
+                    y: Math.random() * height * 0.85,
                     radius: Math.random() * 1.8 + 0.6,
                     alpha: Math.random() * 0.8 + 0.2,
                     twinkleSpeed: Math.random() * 0.05 + 0.01,
                     twinkleVal: Math.random() * Math.PI
+                });
+            }
+            break;
+
+        case 'night_cloudy':
+            // Stars peaking through ethereal night wisps
+            for (let i = 0; i < 70; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height * 0.75,
+                    radius: Math.random() * 1.5 + 0.5,
+                    alpha: Math.random() * 0.6 + 0.2,
+                    twinkleSpeed: Math.random() * 0.04 + 0.01,
+                    twinkleVal: Math.random() * Math.PI
+                });
+            }
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 100 + 60,
+                    speedX: Math.random() * 0.3 + 0.1,
+                    alpha: Math.random() * 0.05 + 0.02,
+                    pulse: Math.random() * Math.PI,
+                    isPuff: true
                 });
             }
             break;
@@ -587,6 +704,41 @@ function startParticleLoop() {
                     canvasCtx.shadowBlur = 0;
                     break;
 
+                case 'partly_cloudy':
+                    particles.forEach(p => {
+                        if (p.isPuff) {
+                            p.pulse += 0.005;
+                            p.x += p.speedX;
+                            if (p.x - p.radius > width) p.x = -p.radius;
+
+                            const radGrad = canvasCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
+                            radGrad.addColorStop(0, `rgba(230, 240, 255, ${p.alpha + Math.sin(p.pulse) * 0.015})`);
+                            radGrad.addColorStop(1, 'rgba(230, 240, 255, 0)');
+
+                            canvasCtx.fillStyle = radGrad;
+                            canvasCtx.beginPath();
+                            canvasCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                            canvasCtx.fill();
+                        } else {
+                            p.pulseVal += p.pulseSpeed;
+                            const currentAlpha = p.alpha + Math.sin(p.pulseVal) * 0.2;
+                            p.y += p.speedY;
+                            p.x += p.speedX;
+                            if (p.y < 0) p.y = height;
+                            if (p.x < 0) p.x = width;
+                            if (p.x > width) p.x = 0;
+
+                            canvasCtx.beginPath();
+                            canvasCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                            canvasCtx.fillStyle = `hsla(${p.hue}, 100%, 75%, ${Math.max(0.1, currentAlpha)})`;
+                            canvasCtx.shadowBlur = 8;
+                            canvasCtx.shadowColor = `hsla(${p.hue}, 100%, 75%, 0.7)`;
+                            canvasCtx.fill();
+                            canvasCtx.shadowBlur = 0;
+                        }
+                    });
+                    break;
+
                 case 'windy':
                     particles.forEach(p => {
                         p.x += p.speed;
@@ -609,8 +761,10 @@ function startParticleLoop() {
 
                 case 'rainy':
                 case 'drizzle':
+                case 'night_rain':
                 case 'storm':
                 case 'thunderstorm':
+                case 'night_storm':
                     particles.forEach(p => {
                         p.y += p.speed;
                         p.x += p.windDrift;
@@ -641,6 +795,7 @@ function startParticleLoop() {
                     break;
 
                 case 'snow':
+                case 'night_snow':
                     particles.forEach(p => {
                         p.swayOffset += p.swaySpeed;
                         p.y += p.speedY;
@@ -660,6 +815,8 @@ function startParticleLoop() {
                     });
                     break;
 
+                case 'cloudy':
+                case 'overcast':
                 case 'fog':
                 case 'mist':
                     particles.forEach(p => {
@@ -679,6 +836,7 @@ function startParticleLoop() {
                     break;
 
                 case 'night':
+                case 'night_clear':
                     particles.forEach(p => {
                         p.twinkleVal += p.twinkleSpeed;
                         const alpha = p.alpha + Math.sin(p.twinkleVal) * 0.3;
@@ -691,6 +849,36 @@ function startParticleLoop() {
                         canvasCtx.fill();
                     });
                     canvasCtx.shadowBlur = 0;
+                    break;
+
+                case 'night_cloudy':
+                    particles.forEach(p => {
+                        if (p.isPuff) {
+                            p.pulse += 0.005;
+                            p.x += p.speedX;
+                            if (p.x - p.radius > width) p.x = -p.radius;
+
+                            const radGrad = canvasCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
+                            radGrad.addColorStop(0, `rgba(40, 60, 100, ${p.alpha + Math.sin(p.pulse) * 0.015})`);
+                            radGrad.addColorStop(1, 'rgba(40, 60, 100, 0)');
+
+                            canvasCtx.fillStyle = radGrad;
+                            canvasCtx.beginPath();
+                            canvasCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                            canvasCtx.fill();
+                        } else {
+                            p.twinkleVal += p.twinkleSpeed;
+                            const alpha = p.alpha + Math.sin(p.twinkleVal) * 0.3;
+
+                            canvasCtx.beginPath();
+                            canvasCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                            canvasCtx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.1, alpha)})`;
+                            canvasCtx.shadowBlur = 5;
+                            canvasCtx.shadowColor = '#ffffff';
+                            canvasCtx.fill();
+                            canvasCtx.shadowBlur = 0;
+                        }
+                    });
                     break;
             }
         }
@@ -832,10 +1020,8 @@ async function loadWeatherData(locationInput = null) {
         state.loading = false;
         state.error = null;
 
-        // Determine condition
-        const weatherId = state.currentWeather.weather[0].id;
-        const isDay = isDaytime(state.currentWeather);
-        const conditionType = getWeatherType(weatherId, isDay);
+        // Determine condition accurately based on real-time satellite & telemetry data
+        const conditionType = determineWeatherCondition(state.currentWeather);
         state.currentConditionType = conditionType;
 
         // Apply cinematic background & particles
@@ -943,9 +1129,13 @@ function weatherCodeInfo(code) {
 }
 
 function adaptOpenMeteoData(data, location) {
+    if (data.timezone && location) {
+        location.timezone = data.timezone;
+    }
+
     const cur = data.current || {};
     const [weatherId, weatherDesc] = weatherCodeInfo(cur.weather_code);
-    const isDay = cur.is_day === 1;
+    const isDay = cur.is_day !== undefined ? cur.is_day === 1 : true;
     const nowIso = cur.time || new Date().toISOString();
     const dt = Math.floor(new Date(nowIso).getTime() / 1000);
 
@@ -963,6 +1153,11 @@ function adaptOpenMeteoData(data, location) {
             sunset
         },
         dt,
+        timezone: data.timezone || location.timezone || 'auto',
+        is_day: cur.is_day !== undefined ? cur.is_day : (isDay ? 1 : 0),
+        weather_code: cur.weather_code !== undefined ? cur.weather_code : 0,
+        cloud_cover: Math.round(cur.cloud_cover ?? 0),
+        precipitation: cur.precipitation ?? 0,
         main: {
             temp: cur.temperature_2m ?? 20,
             feels_like: cur.apparent_temperature ?? cur.temperature_2m ?? 20,
@@ -1041,6 +1236,8 @@ function extractHourlyForecast(forecast) {
 // ========================================
 
 function updateAllUI() {
+    updateDate();
+    updateCurrentTime();
     updateHero();
     updateHourlyForecast();
     renderHourlyCanvasChart();
@@ -1539,37 +1736,125 @@ function getWeatherIcon(weatherId, iconCode) {
         '50d': '<i class="fas fa-smog"></i>'
     };
 
+    const isDay = isDaytime(state.currentWeather);
     if (weatherId >= 200 && weatherId < 300) return '<i class="fas fa-cloud-bolt"></i>';
-    if (weatherId >= 300 && weatherId < 600) return '<i class="fas fa-cloud-showers-heavy"></i>';
+    if (weatherId >= 300 && weatherId < 400) return '<i class="fas fa-cloud-rain"></i>';
+    if (weatherId >= 500 && weatherId < 600) return '<i class="fas fa-cloud-showers-heavy"></i>';
     if (weatherId >= 600 && weatherId < 700) return '<i class="fas fa-snowflake"></i>';
     if (weatherId >= 700 && weatherId < 800) return '<i class="fas fa-smog"></i>';
-    if (weatherId === 800) return isDaytime(state.currentWeather) ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-    if (weatherId > 800) return '<i class="fas fa-cloud"></i>';
+    if (weatherId === 800) return isDay ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    if (weatherId === 801 || weatherId === 802) return isDay ? '<i class="fas fa-cloud-sun"></i>' : '<i class="fas fa-cloud-moon"></i>';
+    if (weatherId > 802) return '<i class="fas fa-cloud"></i>';
 
-    return iconMap[iconCode] || '<i class="fas fa-sun"></i>';
+    return iconMap[iconCode] || (isDay ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>');
 }
 
-function getWeatherType(weatherId, isDay) {
-    if (!isDay) {
-        if (weatherId === 800) return 'night';
-        if (weatherId > 800) return 'cloudy';
+// Master Meteorological Condition Resolver
+function determineWeatherCondition(weatherData) {
+    if (!weatherData) return 'sunny';
+
+    const isDay = isDaytime(weatherData);
+    const weatherItem = weatherData.weather?.[0] || {};
+    const weatherId = weatherItem.id || 800;
+    const weatherCode = weatherData.weather_code !== undefined ? Number(weatherData.weather_code) : -1;
+    const cloudCover = weatherData.clouds?.all ?? weatherData.cloud_cover ?? 0;
+    const windSpeedKmh = (weatherData.wind?.speed ?? 0) * 3.6;
+
+    // Direct Open-Meteo WMO weather_code evaluation (highest precision)
+    if (weatherCode >= 0) {
+        // Severe convective storms & thunder
+        if (weatherCode === 95 || weatherCode === 96 || weatherCode === 99) {
+            return isDay ? 'storm' : 'night_storm';
+        }
+        // Snow / Sleet / Ice pellets / Snow showers
+        if ((weatherCode >= 71 && weatherCode <= 77) || weatherCode === 85 || weatherCode === 86) {
+            return isDay ? 'snow' : 'night_snow';
+        }
+        // Rain / Heavy showers
+        if ((weatherCode >= 61 && weatherCode <= 67) || (weatherCode >= 80 && weatherCode <= 82)) {
+            return isDay ? 'rainy' : 'night_rain';
+        }
+        // Drizzle
+        if (weatherCode >= 51 && weatherCode <= 57) {
+            return isDay ? 'drizzle' : 'night_rain';
+        }
+        // Fog & depositing rime fog
+        if (weatherCode === 45 || weatherCode === 48) {
+            return 'fog';
+        }
+        // Overcast (Code 3)
+        if (weatherCode === 3) {
+            return isDay ? 'overcast' : 'night_cloudy';
+        }
+        // Partly cloudy (Code 2)
+        if (weatherCode === 2) {
+            return isDay ? 'partly_cloudy' : 'night_cloudy';
+        }
+        // Mainly clear (Code 1)
+        if (weatherCode === 1) {
+            if (isDay) {
+                return cloudCover > 35 ? 'partly_cloudy' : 'clear';
+            } else {
+                return cloudCover > 40 ? 'night_cloudy' : 'night_clear';
+            }
+        }
+        // Clear sky (Code 0)
+        if (weatherCode === 0) {
+            return isDay ? 'sunny' : 'night_clear';
+        }
     }
-    if (weatherId >= 200 && weatherId < 300) return 'storm';
-    if (weatherId >= 300 && weatherId < 400) return 'drizzle';
-    if (weatherId >= 500 && weatherId < 600) return 'rainy';
-    if (weatherId >= 600 && weatherId < 700) return 'snow';
+
+    // High Wind Velocity condition override if clear/cloudy but gale/windstorm
+    if (windSpeedKmh >= 38 && (weatherId >= 800 || weatherCode <= 3)) {
+        return 'windy';
+    }
+
+    // Fallback: Standard OpenWeatherMap/WMO weatherId ranges
+    if (weatherId >= 200 && weatherId < 300) return isDay ? 'storm' : 'night_storm';
+    if (weatherId >= 300 && weatherId < 400) return isDay ? 'drizzle' : 'night_rain';
+    if (weatherId >= 500 && weatherId < 600) return isDay ? 'rainy' : 'night_rain';
+    if (weatherId >= 600 && weatherId < 700) return isDay ? 'snow' : 'night_snow';
     if (weatherId >= 700 && weatherId < 800) return 'fog';
-    if (weatherId === 800) return isDay ? 'sunny' : 'night';
-    if (weatherId > 800) return 'cloudy';
-    return 'sunny';
+
+    if (weatherId === 800) {
+        return isDay ? 'sunny' : 'night_clear';
+    }
+    if (weatherId === 801) {
+        return isDay ? (cloudCover > 35 ? 'partly_cloudy' : 'clear') : (cloudCover > 40 ? 'night_cloudy' : 'night_clear');
+    }
+    if (weatherId === 802) {
+        return isDay ? 'partly_cloudy' : 'night_cloudy';
+    }
+    if (weatherId === 803) {
+        return isDay ? 'cloudy' : 'night_cloudy';
+    }
+    if (weatherId >= 804) {
+        return isDay ? 'overcast' : 'night_cloudy';
+    }
+
+    return isDay ? 'sunny' : 'night_clear';
+}
+
+function getWeatherType(weatherId, isDay, weatherData = null) {
+    if (weatherData) {
+        return determineWeatherCondition(weatherData);
+    }
+    return determineWeatherCondition({
+        is_day: isDay ? 1 : 0,
+        weather: [{ id: weatherId }]
+    });
 }
 
 function isDaytime(weatherData) {
-    if (!weatherData || !weatherData.sys) return true;
-    const now = new Date();
-    const sunrise = new Date(weatherData.sys.sunrise * 1000);
-    const sunset = new Date(weatherData.sys.sunset * 1000);
-    return now >= sunrise && now <= sunset;
+    if (!weatherData) return true;
+    if (weatherData.is_day !== undefined) {
+        return weatherData.is_day === 1;
+    }
+    if (weatherData.sys && weatherData.sys.sunrise && weatherData.sys.sunset) {
+        const nowSec = weatherData.dt || Math.floor(Date.now() / 1000);
+        return nowSec >= weatherData.sys.sunrise && nowSec <= weatherData.sys.sunset;
+    }
+    return true;
 }
 
 function getTimePeriod(hour) {
@@ -1589,14 +1874,27 @@ function getUVIndexValue(weatherData) {
 }
 
 function getWeatherOverview(weatherId, temp, humidity, windSpeed) {
-    const condition = getWeatherType(weatherId, isDaytime(state.currentWeather));
+    const condition = determineWeatherCondition(state.currentWeather);
     switch (condition) {
-        case 'sunny': return `Radiant clear skies with ambient temperatures around ${Math.round(temp)}°C. Superb conditions for outdoor ventures.`;
-        case 'rainy': return `Atmospheric precipitation with steady rain at ${Math.round(temp)}°C. Carry waterproof protection.`;
-        case 'storm': return `Active electrical storm with energetic convective precipitation. Shelter recommended.`;
-        case 'snow': return `Pristine snowfall with crisp winter temperatures at ${Math.round(temp)}°C.`;
-        case 'fog': return `Atmospheric mist and reduced visibility. Drive cautiously.`;
-        case 'night': return `Starlit celestial night sky with calm planetary breezes at ${Math.round(temp)}°C.`;
+        case 'sunny':
+        case 'clear': return `Radiant clear skies with ambient temperatures around ${Math.round(temp)}°C. Superb conditions for outdoor ventures.`;
+        case 'partly_cloudy': return `Scattered drifting clouds with pleasant ambient warmth around ${Math.round(temp)}°C.`;
+        case 'cloudy': return `Gentle cloud cover filtering sunlight with temperatures around ${Math.round(temp)}°C.`;
+        case 'overcast': return `Uniform dense cloud layer across the horizon at ${Math.round(temp)}°C. Calm barometric pressure.`;
+        case 'windy': return `High atmospheric kinetic energy with brisk winds gusting at ${Math.round(windSpeed * 3.6)} km/h.`;
+        case 'rainy':
+        case 'night_rain': return `Atmospheric precipitation with steady rain at ${Math.round(temp)}°C. Carry waterproof protection.`;
+        case 'drizzle': return `Fine atmospheric misting precipitation and cool ambient breezes at ${Math.round(temp)}°C.`;
+        case 'storm':
+        case 'thunderstorm':
+        case 'night_storm': return `Active electrical thunderstorm with convective precipitation. Indoor shelter advised.`;
+        case 'snow':
+        case 'night_snow': return `Crisp winter snowfall with ambient temperatures around ${Math.round(temp)}°C.`;
+        case 'fog':
+        case 'mist': return `Atmospheric condensation with reduced visibility. Drive with caution.`;
+        case 'night':
+        case 'night_clear': return `Starlit celestial night sky with calm planetary breezes at ${Math.round(temp)}°C.`;
+        case 'night_cloudy': return `Moonlit sky with soft nocturnal clouds and calm winds at ${Math.round(temp)}°C.`;
         default: return `Current regional atmospheric conditions holding around ${Math.round(temp)}°C.`;
     }
 }
@@ -1827,6 +2125,23 @@ function showHourlyDetail(hour) {
 }
 
 function showSettingsModal() {
+    const scenes = [
+        { id: 'sunny', label: '☀️ Sunny & Radiant' },
+        { id: 'clear', label: '🌤️ Crisp Clear' },
+        { id: 'partly_cloudy', label: '⛅ Partly Cloudy' },
+        { id: 'cloudy', label: '☁️ Cloud Covered' },
+        { id: 'overcast', label: '🌫️ Overcast Sky' },
+        { id: 'windy', label: '💨 High Gales & Wind' },
+        { id: 'rainy', label: '🌧️ Steady Rainfall' },
+        { id: 'drizzle', label: '🌦️ Misting Drizzle' },
+        { id: 'storm', label: '⚡ Severe Thunderstorm' },
+        { id: 'snow', label: '❄️ Winter Snowfall' },
+        { id: 'fog', label: '🌁 Dense Atmospheric Fog' },
+        { id: 'night_clear', label: '✨ Celestial Clear Night' },
+        { id: 'night_cloudy', label: '🌙 Moonlit Cloudy Night' },
+        { id: 'night_rain', label: '🌧️ Nocturnal Rainstorm' }
+    ];
+
     const content = `
         <div style="display: flex; flex-direction: column; gap: 18px;">
             <div>
@@ -1845,10 +2160,21 @@ function showSettingsModal() {
                 <input type="text" id="defaultCityInput" value="${CONFIG.defaultCity}" 
                     style="width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; color: #ffffff;" />
             </div>
+            <div>
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Atmospheric Scene Simulator</label>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Test any dynamic background scene, particle physics, and lighting instantly:</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto; padding-right: 4px;">
+                    ${scenes.map(s => `
+                        <button type="button" class="btn btn-secondary" onclick="simulateWeatherScene('${s.id}')" style="font-size: 11px; padding: 8px 10px; justify-content: flex-start; text-align: left;">
+                            ${s.label}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
         </div>
     `;
 
-    showModal('ATMOS Settings', content, [
+    showModal('ATMOS Settings & Simulation', content, [
         {
             text: 'Save Preferences',
             type: 'primary',
@@ -1889,20 +2215,43 @@ function startClock() {
 }
 
 function updateCurrentTime() {
-    if (elements.currentTime) {
-        elements.currentTime.textContent = formatTime(new Date());
-    }
+    if (!elements.currentTime) return;
+    try {
+        const tz = state.location?.timezone;
+        if (tz && tz !== 'auto') {
+            elements.currentTime.textContent = new Intl.DateTimeFormat('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: tz
+            }).format(new Date());
+            return;
+        }
+    } catch (e) {}
+    elements.currentTime.textContent = formatTime(new Date());
 }
 
 function updateDate() {
-    if (elements.date) {
-        elements.date.textContent = new Date().toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-    }
+    if (!elements.date) return;
+    try {
+        const tz = state.location?.timezone;
+        if (tz && tz !== 'auto') {
+            elements.date.textContent = new Intl.DateTimeFormat('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: tz
+            }).format(new Date());
+            return;
+        }
+    } catch (e) {}
+    elements.date.textContent = new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
 }
 
 function scrollHourlyForecast(direction) {
@@ -1930,6 +2279,7 @@ function debounce(func, wait) {
 window.loadFavorite = loadFavorite;
 window.removeFavorite = removeFavorite;
 window.setUnit = setUnit;
+window.simulateWeatherScene = simulateWeatherScene;
 
 // Initialize on DOM load
 if (document.readyState === 'loading') {
